@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-飞书电子表格媒体文件批量下载工具
+Feishu Spreadsheet Media Batch Downloader
 
-从飞书电子表格中自动提取附件（视频/图片），批量下载到本地。
-适用于影视制作中分镜头表素材分发的场景。
+Automatically extracts attachments (video/images) from Feishu spreadsheets
+and downloads them in bulk. Designed for film production workflows where
+shot lists with embedded media need to be distributed to editors.
 
-用法:
+Usage:
     python downloader.py --token <user_access_token>
 
-需要先通过飞书 OAuth 设备授权获取 user_access_token，
-详见 README 中的认证流程。
+Requires a Feishu user_access_token obtained via OAuth device flow.
+See README for the full authentication guide.
 """
 
 import argparse
@@ -22,13 +23,13 @@ from pathlib import Path
 import requests
 
 # ---------------------------------------------------------------------------
-# 配置（可通过命令行参数覆盖）
+# Configuration
 # ---------------------------------------------------------------------------
 FEISHU_BASE = "https://open.feishu.cn/open-apis"
 
 
 # ---------------------------------------------------------------------------
-# 表格读取
+# Spreadsheet Reader
 # ---------------------------------------------------------------------------
 def read_spreadsheet(spreadsheet_token: str, sheet_id: str, token: str) -> list:
     """分页读取电子表格全部数据"""
@@ -64,13 +65,13 @@ def read_spreadsheet(spreadsheet_token: str, sheet_id: str, token: str) -> list:
             break
 
         offset += page_size
-        time.sleep(0.2)  # 控制频率
+        time.sleep(0.2)  # rate limiting
 
     return all_values
 
 
 # ---------------------------------------------------------------------------
-# 附件提取
+# Attachment Extractor
 # ---------------------------------------------------------------------------
 def extract_attachments(rows: list, column_keyword: str = "分镜视频") -> list:
     """
@@ -88,7 +89,7 @@ def extract_attachments(rows: list, column_keyword: str = "分镜视频") -> lis
 
     headers = rows[0]
 
-    # 找到包含关键词的列
+    # Find columns matching the keyword
     target_cols = []
     for i, header in enumerate(headers):
         if header and column_keyword in str(header):
@@ -110,7 +111,7 @@ def extract_attachments(rows: list, column_keyword: str = "分镜视频") -> lis
             if cell is None or cell in ("—", ""):
                 continue
 
-            # 飞书附件：单元格值可能是 {fileToken, text, type:"attachment"} 的数组
+            # Feishu attachment: cell may contain list of {fileToken, text, type:"attachment"}
             if isinstance(cell, list):
                 for item in cell:
                     if isinstance(item, dict) and item.get("type") == "attachment":
@@ -124,7 +125,7 @@ def extract_attachments(rows: list, column_keyword: str = "分镜视频") -> lis
                                 "shot": shot,
                             })
             elif isinstance(cell, dict) and cell.get("type") == "attachment":
-                # 单个附件
+                # Single attachment
                 file_token = cell.get("fileToken") or cell.get("file_token")
                 if file_token:
                     attachments.append({
@@ -139,7 +140,7 @@ def extract_attachments(rows: list, column_keyword: str = "分镜视频") -> lis
 
 
 # ---------------------------------------------------------------------------
-# 下载
+# Media Downloader
 # ---------------------------------------------------------------------------
 def download_media(token: str, file_token: str, name: str, output_dir: Path) -> bool:
     """下载单个文件"""
@@ -153,7 +154,7 @@ def download_media(token: str, file_token: str, name: str, output_dir: Path) -> 
             print(f"  ❌ {name} (HTTP {resp.status_code})", file=sys.stderr)
             return False
 
-        # 处理重名
+        # Handle filename collisions
         output_path = output_dir / name
         base, ext = os.path.splitext(name)
         counter = 1
@@ -175,7 +176,7 @@ def download_media(token: str, file_token: str, name: str, output_dir: Path) -> 
 
 
 # ---------------------------------------------------------------------------
-# 主入口
+# Main Entry Point
 # ---------------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(

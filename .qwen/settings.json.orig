@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh *)",
+      "Bash(brew *)"
+    ]
+  },
+  "$version": 4
+}
